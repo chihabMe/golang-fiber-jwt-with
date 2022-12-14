@@ -11,4 +11,5 @@ import (
 
 func RegisterRoutes(v1 fiber.Router) {
 	routes.RegisterAccountsRoutes(v1)
+	routes.RegisterProjectsRoutes(v1)
 }

@@ -6,11 +6,11 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/chihabMe/jwt-auth/core/config"
 	"github.com/chihabMe/jwt-auth/core/database"
+	"github.com/chihabMe/jwt-auth/core/helpers"
 	"github.com/chihabMe/jwt-auth/models"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
@@ -25,6 +25,9 @@ func getUserByUsername(username string) (*models.User, error) {
 			return nil, nil
 		}
 		return nil, err
+	}
+	if user.ID == 0 {
+		return nil, nil
 	}
 	return &user, nil
 
@@ -52,14 +55,15 @@ func ObtainToken(c *fiber.Ctx) error {
 	if err != nil || user == nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	fmt.Println(user.Username)
-	fmt.Println(user.CreatedAt)
+	same := helpers.CheckPasswordHash(input.Password, user.Password)
+	if !same {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
 	//
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
-
-	claims["username"] = username
-	claims["admin"] = true
+	claims["username"] = user.Username
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 	t, err := token.SignedString([]byte(config.Config(("SECRET"))))
 	if err != nil {
@@ -75,9 +79,41 @@ func RefreshToken(c *fiber.Ctx) error {
 }
 
 func RegisterAccount(c *fiber.Ctx) error {
-	return c.Status(201).JSON("register")
+	type UserInput struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+	var user models.User
+	if err := c.BodyParser(&user); err != nil {
+		return c.Status(500).JSON(fiber.Map{"status": "error", "message": "please make sure that you didn't miss any field", "data": err})
+	}
+	hash, err := helpers.HashPassword(user.Password)
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+	user.Password = hash
+	if err := database.Instance.Create(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"status": "error", "data": "this username is already being used"})
+	}
+	newUser := UserInput{
+		Email:    user.Email,
+		Username: user.Username,
+	}
+	return c.Status(201).JSON(fiber.Map{"status": "success", "infos": "registered", "data": newUser})
 }
 
 func Me(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"user": "chihab"})
+	token := c.Locals("user").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+	username := claims["username"].(string)
+	user, err := getUserByUsername(username)
+	if err != nil || user == nil {
+		return c.Status(500).JSON(fiber.Map{"status": "error"})
+	}
+	return c.JSON(fiber.Map{"status": "success", "data": user})
+}
+func Users(c *fiber.Ctx) error {
+	var users []models.User
+	database.Instance.Find(&users)
+	return c.JSON(users)
 }

@@ -23,4 +23,5 @@ func RegisterAccountsRoutes(app fiber.Router) {
 	accountsRouter.Post("register/", handlers.RegisterAccount)
 
 	accountsRouter.Get("me/", middleware.Protected(), handlers.Me)
+	accountsRouter.Get("users/", handlers.Users)
 }
