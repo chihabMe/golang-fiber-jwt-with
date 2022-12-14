@@ -2,16 +2,33 @@
 // @Description
 // @Author
 // @Update
-package accounts
+package handlers
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/chihabMe/jwt-auth/core/config"
+	"github.com/chihabMe/jwt-auth/core/database"
+	"github.com/chihabMe/jwt-auth/models"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
+	"gorm.io/gorm"
 )
+
+func getUserByUsername(username string) (*models.User, error) {
+	db := database.Instance
+	var user models.User
+	if err := db.Where(&models.User{Username: username}).Find(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+
+}
 
 func ObtainToken(c *fiber.Ctx) error {
 	type LoginInput struct {
@@ -24,19 +41,23 @@ func ObtainToken(c *fiber.Ctx) error {
 	}
 	username := input.Username
 	pass := input.Password
-	fmt.Println(username)
-	fmt.Println(pass)
 	if username == "" {
 		return c.Status(403).JSON(fiber.Map{"status": "failed", "username": "cant be empty"})
 	}
 	if pass == "" {
 		return c.Status(403).JSON(fiber.Map{"status": "failed", "username": "can't be empty"})
 	}
-	if username != "chihab" || pass != "pass" {
+	//checking in the database
+	user, err := getUserByUsername(username)
+	if err != nil || user == nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
+	fmt.Println(user.Username)
+	fmt.Println(user.CreatedAt)
+	//
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
+
 	claims["username"] = username
 	claims["admin"] = true
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()

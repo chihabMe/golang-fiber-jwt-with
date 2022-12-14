@@ -2,13 +2,13 @@
 // @Description
 // @Author
 // @Update
-package routes
+package router
 
 import (
-	"github.com/chihabMe/jwt-auth/accounts"
+	"github.com/chihabMe/jwt-auth/routes"
 	"github.com/gofiber/fiber/v2"
 )
 
 func RegisterRoutes(v1 fiber.Router) {
-	accounts.RegisterRoutes(v1)
+	routes.RegisterAccountsRoutes(v1)
 }

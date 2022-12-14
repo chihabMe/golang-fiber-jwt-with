@@ -7,7 +7,7 @@ package database
 import (
 	"fmt"
 
-	"github.com/chihabMe/jwt-auth/accounts"
+	"github.com/chihabMe/jwt-auth/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -26,5 +26,5 @@ func ConnectDb() {
 }
 
 func Migrate() {
-	Instance.AutoMigrate(&accounts.User{})
+	Instance.AutoMigrate(&models.User{})
 }

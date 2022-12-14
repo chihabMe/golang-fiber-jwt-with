@@ -8,7 +8,7 @@ import (
 	"log"
 
 	"github.com/chihabMe/jwt-auth/core/database"
-	"github.com/chihabMe/jwt-auth/core/routes"
+	"github.com/chihabMe/jwt-auth/core/router"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 )
@@ -16,7 +16,7 @@ import (
 func SetupRoutes(app *fiber.App) {
 	api := app.Group("api/", logger.New())
 	v1 := api.Group("v1/")
-	routes.RegisterRoutes(v1)
+	router.RegisterRoutes(v1)
 }
 func main() {
 	app := fiber.New()
