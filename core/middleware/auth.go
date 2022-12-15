@@ -14,6 +14,7 @@ func Protected() fiber.Handler {
 	return jwtware.New(jwtware.Config{
 		SigningKey:   []byte(config.Config("SECRET")),
 		ErrorHandler: jwtError,
+		TokenLookup:"cookie:Authorization",
 	})
 }
 func jwtError(c *fiber.Ctx, err error) error {
@@ -21,4 +22,10 @@ func jwtError(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Missing or malformed JWT", "data": nil})
 	}
 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "invalid or expired JWT", "data": nil})
+}
+
+func GetDataFromJWT(c *fiber.Ctx)error{
+	// jwtData = c.Locals("user").(*jwt.Token)
+	return c.JSON(nil)
+
 }

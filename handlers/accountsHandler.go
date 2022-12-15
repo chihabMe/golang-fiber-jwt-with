@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/chihabMe/jwt-auth/core/config"
@@ -63,15 +64,35 @@ func ObtainToken(c *fiber.Ctx) error {
 	//
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
+	claims["user_id"] = user.ID
 	claims["username"] = user.Username
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 	t, err := token.SignedString([]byte(config.Config(("SECRET"))))
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
+	c.Cookie(&fiber.Cookie{
+		Name:"Authorization",
+		Value:t,
+		Path:"/",
+		Expires:time.Now().Add(time.Hour*24),
+		Secure:false,
+		HTTPOnly:true,
+	})
 	return c.JSON(fiber.Map{"status": "success", "token": t})
 }
 func VerifyToken(c *fiber.Ctx) error {
+	// token :=c.Cookies
+	jwtData := c.Locals("user").(*jwt.Token)
+	claims :=jwtData.Claims.(jwt.MapClaims)
+	userId :=claims["user_id"]
+	exp :=claims["exp"].(float64)
+	fmt.Println(exp)
+	var user models.User 
+	if err:=database.Instance.Find(&user,userId).Error;err!=nil{
+		return c.Status(401).JSON(fiber.Map{"status":"error","data":"failed"})
+	}	
+
 	return c.JSON("verify token")
 }
 func RefreshToken(c *fiber.Ctx) error {
@@ -103,14 +124,30 @@ func RegisterAccount(c *fiber.Ctx) error {
 }
 
 func Me(c *fiber.Ctx) error {
+	type ResponseRes struct{
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Twitter  string `json:"twitter"`
+		Github   string `json:"github"`
+		LinkeDin string `json:"linkeDin"`
+		ID uint `json:"id"`
+	}
 	token := c.Locals("user").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 	username := claims["username"].(string)
 	user, err := getUserByUsername(username)
+	
 	if err != nil || user == nil {
 		return c.Status(500).JSON(fiber.Map{"status": "error"})
 	}
-	return c.JSON(fiber.Map{"status": "success", "data": user})
+	var res ResponseRes = ResponseRes{}
+	res.Username=user.Username
+	res.Email   =user.Email 
+	res.Twitter =user.Twitter 
+	res.Github  =user.Github
+	res.LinkeDin =user.LinkeDin
+	res.ID =user.ID
+	return c.JSON(fiber.Map{"status": "success", "data": res})
 }
 func Users(c *fiber.Ctx) error {
 	var users []models.User

@@ -9,7 +9,7 @@ import (
 
 func GetAllProjects(c *fiber.Ctx) error {
 	var projects []models.Project
-	database.Instance.Find(&projects)
+	database.Instance.Select("id,title,Slug,intro,description,url,github").Find(&projects)
 	return c.JSON(fiber.Map{"status": "success", "data": projects})
 }
 func AddProject(c *fiber.Ctx) error {
