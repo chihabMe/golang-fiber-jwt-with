@@ -15,7 +15,9 @@ import (
 )
 
 func SetupRoutes(app *fiber.App) {
-	app.Use(limiter.New(limiter.Config{}))
+	app.Use(limiter.New(limiter.Config{
+		Max: 1000,
+	}))
 	api := app.Group("api/", logger.New())
 	v1 := api.Group("v1/")
 	router.RegisterRoutes(v1)
