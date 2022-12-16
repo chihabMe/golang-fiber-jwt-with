@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chihabMe/jwt-auth/core/config"
 	"github.com/chihabMe/jwt-auth/core/database"
 	"github.com/chihabMe/jwt-auth/core/helpers"
+	"github.com/chihabMe/jwt-auth/core/utils"
 	"github.com/chihabMe/jwt-auth/models"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
@@ -68,27 +68,44 @@ func ObtainToken(c *fiber.Ctx) error {
 	// 	"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	// })
 	//
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["user_id"] = user.ID
-	claims["username"] = user.Username
-	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 
-	t, err := token.SignedString([]byte(config.Config(("SECRET"))))
-	fmt.Println("token", t)
-	fmt.Println("error", err)
+	//access token
+	// token := jwt.New(jwt.SigningMethodHS256)
+	// accessClaims := token.Claims.(jwt.MapClaims)
+	// accessClaims["user_id"] = user.ID
+	// accessClaims["username"] = user.Username
+	// accessClaims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+	// //refresh token
+	// refresh := jwt.New(jwt.SigningMethodES256)
+	// refreshClaims := refresh.Claims.(jwt.MapClaims)
+	// refreshClaims["user_id"] = user.ID
+	// refreshClaims["exp"] = time.Now().Add(time.Hour * 24 * 30).Unix()
+	// acc, err := token.SignedString([]byte(config.Config(("SECRET"))))
+	// ref, err := token.SignedString([]byte(config.Config(("SECRET"))))
+	// if err != nil {
+	// 	return c.SendStatus(fiber.StatusUnauthorized)
+	// }
+	tokens, err := utils.GenerateTokenPair(user)
 	if err != nil {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "data": "server error"})
 	}
 	c.Cookie(&fiber.Cookie{
 		Name:     "Authorization",
-		Value:    t,
+		Value:    tokens["access_token"],
 		Path:     "/",
 		Expires:  time.Now().Add(time.Hour * 24),
 		Secure:   false,
 		HTTPOnly: true,
 	})
-	return c.JSON(fiber.Map{"status": "success", "token": t})
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh",
+		Value:    tokens["refresh_token"],
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour * 24 * 30),
+		Secure:   false,
+		HTTPOnly: true,
+	})
+	return c.JSON(fiber.Map{"status": "success", "token": fiber.Map{"access": tokens["access_token"], "refresh": tokens["refresh_token"]}})
 }
 func VerifyToken(c *fiber.Ctx) error {
 	// token :=c.Cookies
@@ -105,7 +122,48 @@ func VerifyToken(c *fiber.Ctx) error {
 	return c.JSON("verify token")
 }
 func RefreshToken(c *fiber.Ctx) error {
-	return c.JSON("refresh token")
+	refreshToken := c.Cookies("refresh")
+
+	token, err := utils.VerifyTokenMethod(refreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "data": "failed"})
+	}
+	alive := utils.VerifyTokenExpireDate(token)
+	if !alive {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "data": "dead refresh token"})
+	}
+	claims := token.Claims.(jwt.MapClaims)
+
+	var user models.User
+	if err := database.Instance.First(&user, claims["user_id"]).Error; err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "data": "unknown refresh token refresh token"})
+	}
+	if user.ID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "data": "unknown refresh token refresh token"})
+	}
+	tokens, err := utils.GenerateTokenPair(&user)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "data": "unknown refresh token refresh token"})
+	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "Authorization",
+		Value:    tokens["access_token"],
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour * 24),
+		Secure:   false,
+		HTTPOnly: true,
+	})
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh",
+		Value:    tokens["refresh_token"],
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour * 24),
+		Secure:   false,
+		HTTPOnly: true,
+	})
+
+	return c.Status(fiber.StatusOK).JSON(nil)
+	//return c.Status(fiber.StatusOK).JSON(fiber.Map{"refresh": tokens["refresh_token"], "access": tokens["access_token"]})
 }
 
 func RegisterAccount(c *fiber.Ctx) error {
