@@ -218,8 +218,3 @@ func Me(c *fiber.Ctx) error {
 	res.ID = user.ID
 	return c.JSON(fiber.Map{"status": "success", "data": res})
 }
-func Users(c *fiber.Ctx) error {
-	var users []models.User
-	database.Instance.Find(&users)
-	return c.JSON(users)
-}

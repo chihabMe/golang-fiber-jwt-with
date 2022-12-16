@@ -10,14 +10,13 @@ import (
 	"github.com/chihabMe/jwt-auth/core/database"
 	"github.com/chihabMe/jwt-auth/core/router"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 func SetupRoutes(app *fiber.App) {
-	app.Use(limiter.New(limiter.Config{
-		Max: 1000,
-	}))
+	// app.Use(limiter.New(limiter.Config{
+	// 	Max: 1000,
+	// }))
 	api := app.Group("api/", logger.New())
 	v1 := api.Group("v1/")
 	router.RegisterRoutes(v1)
