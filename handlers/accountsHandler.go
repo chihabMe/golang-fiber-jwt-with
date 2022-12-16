@@ -175,6 +175,10 @@ func RegisterAccount(c *fiber.Ctx) error {
 	if err := c.BodyParser(&user); err != nil {
 		return c.Status(500).JSON(fiber.Map{"status": "error", "message": "please make sure that you didn't miss any field", "data": err})
 	}
+	errors := models.ValidateUser(user)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "data": errors})
+	}
 	hash, err := helpers.HashPassword(user.Password)
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
